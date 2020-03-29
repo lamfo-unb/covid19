@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+
+
+# Csv files
+projecoes/dados/bruto/*.csv
+projecoes/dados/processado/*.csv
+
