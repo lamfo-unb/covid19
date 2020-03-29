@@ -1,44 +1,54 @@
 
-# install.packages('nCov2019')
+# Dependências
 # install.packages('deSolve')
+# install.packages('dplyr')
+# install.packages('ggplot2')
+# install.packages('scales')
+# install.packages("data.table")
 
-require(nCov2019)
-require(deSolve)
+library(deSolve)
 
+## Carregando funçoes
 func <- new.env()
 source('projecoes/helper/funcoes.R', local = func, encoding = 'UTF-8')
 
-if (!exists('data_br')) {
-  data <- load_nCov2019()
-  data_global <- data["global"] #extract global data
-  data_br <- filter(data_global, country == 'Brazil')
-}
+## Carregando dados
+estados <- readRDS('projecoes/dados/processado/covid-estado.rds')
+cidades <- readRDS('projecoes/dados/processado/covid-cidades.rds')
 
-valores_iniciais <- func$calcular_valores_iniciais() # Vem dos dados
-parametros <- func$calcular_parametros() # Vem dos inputs apps
-tempo <- 1:100
-previsoes <- func$prever(valores_iniciais, tempo, parametros)
+## Definindo parâmetros, caso Distrito Federal
+valores_iniciais <- func$calcular_valores_iniciais(
+  infectados = 242,
+  recuperados = 0,
+  expostos = 2,
+  populacao = 3015268
+) 
 
-previsoes_ <- func$processar_previsoes(
-  previsoes = previsoes,
-  col_time = 'time',
-  data_inicio = '2020-02-26'
+parametros <- func$calcular_parametros(
+  taxa_contato = 10,
+  prob_transmissao = .17,
+  periodo_infeccao = 8,
+  periodo_latencia = 7
 )
 
-func$plotar_previsoes(previsoes_)
+## Fazendo previsões
+previsoes <- func$prever(valores_iniciais, parametros, periodos = 10)
 
+## Processando previsões
+previsoes_ <- func$processar_previsoes( # testando para Distrito Federal
+  previsoes = previsoes,
+  col_time = 'time',
+  data_inicio = '2020-03-26',
+  ordem_grand = 1000 # Dividido população por 1.000
+)
 
-obter_infectados <- function(resumo_estado, estado_){
-  
-  resumo_estado %>% 
-    filter(variavel == 'Confirmados') %>%
-    filter(estado == estado_) %>% 
-    arrange(date) %>% 
-    .[['quantidade']] %>% 
-    tail(1)
-  
-}
+## Plotando previsões
+previsoes2_ <- previsoes_ %>% 
+  filter(tipo != 'Suscetíveis')
 
-obter_infectados(resumo_estado, 'Distrito Federal')
-
+func$plotar_previsoes(
+  previsoes = previsoes2_,
+  subtitulo = 'Distrito Federal',
+  ordem_grand = 'Mil '
+)
 

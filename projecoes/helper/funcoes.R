@@ -1,7 +1,6 @@
 library(ggplot2)
 library(dplyr)
-
-
+library(scales)
 
 calcular_valores_iniciais <- function(
   infectados = 1, recuperados = 0, expostos = 2, populacao = 211289547){
@@ -64,14 +63,16 @@ adicionar_datas <- function(previsoes, data_inicial, col_time = 'time'){
   
 }
 
-obter_populacao_absoluta <- function(previsoes, col_time = 'time', pop = NULL){
+obter_populacao_absoluta <- function(previsoes, col_time = 'time', pop = NULL, ordem_grand = 1){
   pop_brasil <- 211289547
   if (is.null(pop)) pop <- pop_brasil
+  
+  pop_ordem_grand <- pop/ordem_grand
   
   date <- previsoes[[col_time]]
   colunas <- base::setdiff(names(previsoes), col_time)
   previsoes <- previsoes[,colunas]
-  previsoes[] <- lapply(previsoes, function(x){x*pop})
+  previsoes[] <- lapply(previsoes, function(x){x*pop_ordem_grand})
   
   data.frame(
     time = date,
@@ -95,26 +96,33 @@ pivotear_long <- function(previsoes){
   tidyr::pivot_longer(previsoes, cols = colunas_var, names_to = 'tipo', values_to = 'casos')
 }
 
-processar_previsoes <- function(previsoes, col_time, data_inicio, pop = NULL){
-  previsoes <- obter_populacao_absoluta(previsoes, col_time, pop)
+processar_previsoes <- function(previsoes, col_time, data_inicio, pop = NULL, ordem_grand = 1){
+  previsoes <- obter_populacao_absoluta(previsoes, col_time, pop, ordem_grand = ordem_grand)
   previsoes <- adicionar_datas(previsoes, data_inicio, col_time)
   previsoes <- renomear_variaveis(previsoes)
   pivotear_long(previsoes)
 }
 
-plotar_previsoes <- function(previsoes){
+plotar_previsoes <- function(previsoes, subtitulo = NULL, ordem_grand = ''){
   previsoes %>% 
     ggplot(aes(x = time, y = casos, color = tipo)) +
-    geom_line() +
+    geom_line(size = .9) +
     labs(
+      title = 'Previsões para evolução do Covid-19',
+      subtitle = subtitulo,
       x = NULL,
-      y = 'Casos',
-      color = NULL
+      y = paste(ordem_grand, 'Casos', sep = ''),
+      color = NULL,
+      caption = 'Fonte dados: Secretarias Estaduais de Saúde e brasil.io; Elaboração: Lamfo-UnB'
+    ) +
+    scale_y_continuous(labels = scales::format_format(big.mark = ' ')) +
+    theme(
+      legend.position = 'bottom'
     )
 }
 
-
-prever <- function(valores_iniciais, tempo, parametros){
+prever <- function(valores_iniciais, parametros, periodos){
+  tempo <- seq(1, periodos, 1)
   output <- deSolve::lsoda(valores_iniciais, tempo, SEIR, parametros)
   previsoes <- as.data.frame(output)
   return(previsoes)
